@@ -1,18 +1,35 @@
 // - Imports
 import React from 'react';
 import { renderToString } from 'react-dom/server';
+import serialize from 'serialize-javascript';
 import App from '../../client/App';
 
 /**
  * Get Content To Render
- * @param request - The HTTP Request recieved by the Express server
+ * @param request - The HTTP Request received by the Express server
+ * @param store - The server side Redux store
  * @returns {string} - HTML string containing all React Content rendered to HTML
  */
-export const getContentToRender = (request) => {
+export const getContentToRender = (request, store) => {
     // Generate the HTML for the React Component Tree
     const content = renderToString(
-        <App location={request.path} context={{}} useStaticRouter />
+        <App
+            location={request.path}
+            context={{}}
+            store={store}
+            useStaticRouter
+        />
     );
+
+    // Convert server-side store to a JSON object to send to the client
+    const JSON_STORE = serialize(store.getState());
+
+    // Inject the json data into the renderable HTML template
+    const jsonStateScriptInjection = `
+    <script>
+    window.INITIAL_STATE = ${JSON_STORE}
+    </script>
+    `;
 
     /*
      Generate a Root HTML Snippet
@@ -31,6 +48,7 @@ export const getContentToRender = (request) => {
         </head>
         <body>
             <div id="root">${content}</div>
+            ${jsonStateScriptInjection}
             <script src="bundle.js"></script>
         </body>
     </html>
